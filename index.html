@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZYRA | Driver Safety</title>
+
+<style>
+:root {
+  --cream: #f7f0e5;
+  --paper: #fffaf2;
+  --wine: #701f32;
+  --red: #a73546;
+  --ink: #302326;
+  --muted: #897a76;
+  --line: #e6d8cd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+  cursor: pointer;
+  font: inherit;
+}
+
+.layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+}
+
+.sidebar {
+  background: var(--wine);
+  color: #fff6ed;
+  padding: 30px 19px;
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+}
+
+.brand {
+  padding: 0 12px;
+}
+
+.brand-name {
+  font-family: Georgia, serif;
+  font-size: 35px;
+  letter-spacing: 5px;
+}
+
+.brand p {
+  color: #e7c8c5;
+  font-size: 10px;
+  letter-spacing: 2px;
+  line-height: 1.7;
+}
+
+.nav-label {
+  color: #d8aeb1;
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin: 0 12px 12px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #f5ded9;
+  padding: 13px 12px;
+  margin: 3px 0;
+  text-align: left;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  background: #923b4c;
+  color: white;
+}
+
+.sidebar-note {
+  margin-top: auto;
+  border-top: 1px solid #99515d;
+  padding: 20px 12px 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #e7c8c5;
+}
+
+main {
+  padding: 30px 4.2%;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 22px;
+}
+
+.eyebrow {
+  color: var(--red);
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(29px, 3.2vw, 44px);
+  font-weight: normal;
+  margin: 9px 0;
+  letter-spacing: -1px;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.top-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.btn {
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--wine);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.btn.primary {
+  background: var(--wine);
+  color: white;
+  border-color: var(--wine);
+}
+
+.hero {
+  margin: 26px 0;
+  padding: 28px 30px;
+  background: var(--wine);
+  color: white;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "安全";
+  position: absolute;
+  right: 23%;
+  top: -35px;
+  font-family: Georgia, serif;
+  font-size: 140px;
+  color: #ffffff;
+  opacity: .045;
+  pointer-events: none;
+}
+
+.hero h2 {
+  font-family: Georgia, serif;
+  font-size: clamp(25px, 3vw, 37px);
+  font-weight: normal;
+  margin: 12px 0;
+}
+
+.hero p {
+  color: #e8cbd0;
+  font-size: 13px;
+  line-height: 1.8;
+  max-width: 440px;
+}
+
+.hero .eyebrow {
+  color: #e6a7ad;
+}
+
+.hero-symbol {
+  font-family: Georgia, serif;
+  font-size: 80px;
+  color: #f0d6c4;
+  padding: 0 15px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 32px 0 16px;
+  gap: 10px;
+}
+
+.section-heading h2 {
+  font-family: Georgia, serif;
+  font-size: 23px;
+  font-weight: normal;
+  margin: 0;
+}
+
+.section-heading span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.stat {
+  padding: 20px 17px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  min-height: 125px;
+}
+
+.stat-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.stat-value {
+  font-family: Georgia, serif;
+  font-size: 35px;
+  margin: 15px 0 5px;
+  color: var(--wine);
+}
+
+.stat-foot {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.modules {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 17px;
+}
+
+.module {
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 22px 19px;
+  min-height: 160px;
+  color: var(--ink);
+  transition: transform .18s, border-color .18s;
+}
+
+.module:hover {
+  transform: translateY(-3px);
+  border-color: var(--red);
+}
+
+.module-icon {
+  font-size: 23px;
+  margin-bottom: 18px;
+}
+
+.module h3 {
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: normal;
+  margin: 0 0 9px;
+}
+
+.module p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.module .arrow {
+  color: var(--red);
+  float: right;
+  font-size: 18px;
+}
+
+footer {
+  margin-top: 32px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#notice {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--wine);
+  color: white;
+  padding: 15px 20px;
+  max-width: 320px;
+  font-size: 13px;
+  line-height: 1.6;
+  box-shadow: 0 5px 25px #30232622;
+  display: none;
+  z-index: 10;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+
+  main {
+    padding: 24px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .modules {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding: 17px;
+    gap: 15px;
+  }
+
+  .brand-name {
+    font-size: 27px;
+  }
+
+  .sidebar nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 5px;
+  }
+
+  .sidebar nav > div {
+    display: flex;
+    gap: 5px;
+  }
+
+  .nav-label,
+  .sidebar-note {
+    display: none;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    width: auto;
+    padding: 10px;
+  }
+
+  main {
+    padding: 22px 17px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hero {
+    padding: 23px 20px;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-symbol {
+    display: none;
+  }
+
+  .stats {
+    gap: 9px;
+  }
+
+  .stat {
+    padding: 15px 12px;
+  }
+
+  .modules {
+    grid-template-columns: 1fr;
+  }
+
+  footer {
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-name">ZYRA</div>
+    <p>DRIVER SAFETY<br>MONITORING SYSTEM</p>
+  </div>
+
+  <nav>
+    <div>
+      <div class="nav-label">WORKSPACE</div>
+
+      <button class="nav-item active" data-page="Overview">◈ Overview</button>
+      <button class="nav-item" data-page="Drivers">♙ Drivers</button>
+      <button class="nav-item" data-page="Sessions">◷ Monitoring Sessions</button>
+      <button class="nav-item" data-page="Observations">◎ Observations</button>
+      <button class="nav-item" data-page="Fatigue Assessments">◉ Fatigue Assessments</button>
+      <button class="nav-item" data-page="Alerts">⚑ Alerts</button>
+      <button class="nav-item" data-page="Reports">▤ Reports</button>
+    </div>
+  </nav>
+
+  <div class="sidebar-note">
+    DRIVE WITH AWARENESS.<br>
+    ARRIVE WITH CARE.<br><br>
+    <span>DRIVER SAFETY CONSOLE · V1.0</span>
+  </div>
+</aside>
+
+<main>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">DRIVER SAFETY CONSOLE</div>
+      <h1 id="page-title">Overview</h1>
+      <div class="subtitle" id="page-subtitle">
+        A clearer view of driver monitoring and safety.
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn" id="refresh">↻ Refresh</button>
+      <button class="btn primary" id="admin">Admin Console ↗</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">AWARENESS IS THE FIRST LINE OF SAFETY</div>
+      <h2>Every journey<br>deserves a safe return.</h2>
+      <p>
+        Monitor driver activity, review observations, and organize
+        safety information in one place.
+      </p>
+      <button class="btn" id="explore">Explore dashboard ↗</button>
+    </div>
+    <div class="hero-symbol" aria-hidden="true">安全</div>
+  </section>
+
+  <div class="section-heading">
+    <h2>At a glance</h2>
+    <span>LIVE DATABASE CONNECTION NOT CONFIGURED</span>
+  </div>
+
+  <section class="stats">
+    <article class="stat">
+      <div class="stat-label">REGISTERED DRIVERS</div>
+      <div class="stat-value">—</div>
+      <div class="stat-foot">Awaiting database connection</div>
+    </article>
+
+    <article class="stat">
+      <div class="stat-label">TOTAL SESSIONS</div>
+      <div class="stat-value">—</div>
+      <div class="stat-foot">Awaiting database connection</div>
+    </article>
+
+    <article class="stat">
+      <div class="stat-label">OBSERVATIONS</div>
+      <div class="stat-value">—</div>
+      <div class="stat-foot">Awaiting database connection</div>
+    </article>
+
+    <article class="stat">
+      <div class="stat-label">SAFETY ALERTS</div>
+      <div class="stat-value">—</div>
+      <div class="stat-foot">Awaiting database connection</div>
+    </article>
+  </section>
+
+  <div class="section-heading" id="management">
+    <h2>Management modules</h2>
+    <span>SELECT A MODULE TO EXPLORE</span>
+  </div>
+
+  <section class="modules">
+    <button class="module" data-page="Drivers">
+      <div class="module-icon">♙</div>
+      <span class="arrow">↗</span>
+      <h3>Driver Management</h3>
+      <p>Organize driver profiles and related records.</p>
+    </button>
+
+    <button class="module" data-page="Sessions">
+      <div class="module-icon">◷</div>
+      <span class="arrow">↗</span>
+      <h3>Monitoring Sessions</h3>
+      <p>Review and organize driver monitoring sessions.</p>
+    </button>
+
+    <button class="module" data-page="Observations">
+      <div class="module-icon">◎</div>
+      <span class="arrow">↗</span>
+      <h3>Observations</h3>
+      <p>Access recorded monitoring observations.</p>
+    </button>
+
+    <button class="module" data-page="Fatigue Assessments">
+      <div class="module-icon">◉</div>
+      <span class="arrow">↗</span>
+      <h3>Fatigue Assessments</h3>
+      <p>Review available fatigue assessment records.</p>
+    </button>
+
+    <button class="module" data-page="Alerts">
+      <div class="module-icon">⚑</div>
+      <span class="arrow">↗</span>
+      <h3>Alert Management</h3>
+      <p>Review safety alert records and their status.</p>
+    </button>
+
+    <button class="module" data-page="Reports">
+      <div class="module-icon">▤</div>
+      <span class="arrow">↗</span>
+      <h3>Session Reports</h3>
+      <p>Access session summaries and available reports.</p>
+    </button>
+  </section>
+
+  <footer>
+    <span>ZYRA · DRIVER SAFETY MONITORING SYSTEM</span>
+    <span>WEB INTERFACE PREVIEW · BACKEND NOT CONNECTED</span>
+  </footer>
+</main>
+</div>
+
+<div id="notice" role="status"></div>
+
+<script>
+const subtitles = {
+  "Overview": "A clearer view of driver monitoring and safety.",
+  "Drivers": "Driver profiles and management workspace.",
+  "Sessions": "Organize and review monitoring sessions.",
+  "Observations": "Review recorded monitoring observations.",
+  "Fatigue Assessments": "Review available fatigue assessment records.",
+  "Alerts": "Organize and review safety alerts.",
+  "Reports": "Access monitoring session reports."
+};
+
+const notice = document.getElementById("notice");
+let noticeTimer;
+
+function showNotice(message) {
+  notice.textContent = message;
+  notice.style.display = "block";
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => {
+    notice.style.display = "none";
+  }, 3500);
+}
+
+function openPage(page) {
+  document.getElementById("page-title").textContent = page;
+  document.getElementById("page-subtitle").textContent =
+    subtitles[page] || "ZYRA driver safety workspace.";
+
+  document.querySelectorAll(".nav-item").forEach(button => {
+    button.classList.toggle("active", button.dataset.page === page);
+  });
+
+  if (page === "Overview") {
+    document.querySelector(".hero").style.display = "grid";
+    document.querySelector(".stats").style.display = "grid";
+    document.querySelector("#management").style.display = "flex";
+    document.querySelector(".modules").style.display = "grid";
+  } else {
+    document.querySelector(".hero").style.display = "none";
+    document.querySelector(".stats").style.display = "none";
+    document.querySelector("#management").style.display = "none";
+    document.querySelector(".modules").style.display = "grid";
+    document.querySelectorAll(".module").forEach(card => {
+      card.style.display = card.dataset.page === page ? "block" : "none";
+    });
+    showNotice(page + ": backend connection is not configured yet.");
+  }
+
+  if (page === "Overview") {
+    document.querySelectorAll(".module").forEach(card => {
+      card.style.display = "block";
+    });
+  }
+}
+
+document.querySelectorAll("[data-page]").forEach(button => {
+  button.addEventListener("click", () => openPage(button.dataset.page));
+});
+
+document.getElementById("refresh").addEventListener("click", () => {
+  showNotice("Dashboard refreshed. Live database data is not connected.");
+});
+
+document.getElementById("admin").addEventListener("click", () => {
+  showNotice("Admin features will be available after authentication is configured.");
+});
+
+document.getElementById("explore").addEventListener("click", () => {
+  document.getElementById("management").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+});
+
+openPage("Overview");
+</script>
+</body>
+</html>
