@@ -571,6 +571,8 @@ footer {
 <div id="notice" role="status"></div>
 
 <script>
+const API_BASE = "http://localhost:8080";
+
 const subtitles = {
   "Overview": "A clearer view of driver monitoring and safety.",
   "Drivers": "Driver profiles and management workspace.",
@@ -581,8 +583,18 @@ const subtitles = {
   "Reports": "Access monitoring session reports."
 };
 
+const pageEndpoints = {
+  "Drivers": "drivers",
+  "Sessions": "sessions",
+  "Observations": "observations",
+  "Fatigue Assessments": "assessments",
+  "Alerts": "alerts",
+  "Reports": "reports"
+};
+
 const notice = document.getElementById("notice");
 let noticeTimer;
+let currentPage = "Overview";
 
 function showNotice(message) {
   notice.textContent = message;
@@ -590,10 +602,249 @@ function showNotice(message) {
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => {
     notice.style.display = "none";
-  }, 3500);
+  }, 4000);
+}
+
+async function apiGet(path) {
+  const response = await fetch(`${API_BASE}${path}`);
+
+  if (!response.ok) {
+    throw new Error(`API request failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
+function setConnectionStatus(connected, message) {
+  document.querySelector(".section-heading span").textContent =
+    message;
+
+  const footer = document.querySelector("footer span:last-child");
+  footer.textContent = connected
+    ? "LIVE DATABASE CONNECTION · CONNECTED"
+    : "DATABASE CONNECTION · UNAVAILABLE";
+}
+
+function updateStatCards(data) {
+  const values = [
+    data.drivers,
+    data.sessions,
+    data.observations,
+    data.alerts
+  ];
+
+  const descriptions = [
+    "Registered driver profiles",
+    "Recorded monitoring sessions",
+    "Recorded observations",
+    "Recorded safety alerts"
+  ];
+
+  document.querySelectorAll(".stat").forEach((card, index) => {
+    card.querySelector(".stat-value").textContent =
+      values[index] ?? 0;
+
+    card.querySelector(".stat-foot").textContent =
+      descriptions[index];
+  });
+}
+
+async function loadDashboard() {
+  try {
+    const [health, dashboard] = await Promise.all([
+      apiGet("/api/health"),
+      apiGet("/api/dashboard")
+    ]);
+
+    if (health.status !== "online" ||
+        health.database !== "connected") {
+      throw new Error("Database is not connected.");
+    }
+
+    updateStatCards(dashboard);
+    setConnectionStatus(true, "LIVE DATABASE · CONNECTED");
+  } catch (error) {
+    setConnectionStatus(false, "DATABASE CONNECTION · UNAVAILABLE");
+
+    document.querySelectorAll(".stat").forEach(card => {
+      card.querySelector(".stat-value").textContent = "—";
+      card.querySelector(".stat-foot").textContent =
+        "Unable to load database data";
+    });
+
+    console.error("Dashboard loading error:", error);
+    showNotice(
+      "Cannot connect to the ZYRA API. Make sure your Java API server is running on port 8080."
+    );
+  }
+}
+
+function formatColumnName(key) {
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function formatCellValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function createDataWorkspace() {
+  let workspace = document.getElementById("data-workspace");
+
+  if (!workspace) {
+    workspace = document.createElement("section");
+    workspace.id = "data-workspace";
+    workspace.style.cssText =
+      "margin-top:24px;background:var(--paper);" +
+      "border:1px solid var(--line);padding:20px;";
+
+    document.querySelector("main").insertBefore(
+      workspace,
+      document.querySelector("footer")
+    );
+  }
+
+  return workspace;
+}
+
+function showLoading(page) {
+  const workspace = createDataWorkspace();
+  workspace.replaceChildren();
+
+  const heading = document.createElement("h2");
+  heading.textContent = page;
+  heading.style.cssText =
+    "font-family:Georgia,serif;font-weight:normal;";
+
+  const message = document.createElement("p");
+  message.textContent = "Loading records from the database…";
+  message.style.color = "var(--muted)";
+
+  workspace.append(heading, message);
+}
+
+function renderTable(page, records) {
+  const workspace = createDataWorkspace();
+  workspace.replaceChildren();
+
+  const heading = document.createElement("h2");
+  heading.textContent = page;
+  heading.style.cssText =
+    "font-family:Georgia,serif;font-weight:normal;margin-top:0;";
+
+  const summary = document.createElement("p");
+  summary.textContent = `${records.length} record(s) returned by the API.`;
+  summary.style.cssText =
+    "color:var(--muted);font-size:12px;margin-bottom:18px;";
+
+  workspace.append(heading, summary);
+
+  if (!Array.isArray(records) || records.length === 0) {
+    const empty = document.createElement("p");
+    empty.textContent = "No records are available for this section yet.";
+    empty.style.color = "var(--muted)";
+    workspace.append(empty);
+    return;
+  }
+
+  const columns = [...new Set(records.flatMap(record =>
+    Object.keys(record)
+  ))];
+
+  const tableWrapper = document.createElement("div");
+  tableWrapper.style.cssText =
+    "overflow-x:auto;width:100%;";
+
+  const table = document.createElement("table");
+  table.style.cssText =
+    "width:100%;border-collapse:collapse;text-align:left;" +
+    "font-size:12px;";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+
+  columns.forEach(column => {
+    const th = document.createElement("th");
+    th.textContent = formatColumnName(column);
+    th.style.cssText =
+      "background:var(--cream);color:var(--wine);" +
+      "padding:12px;border-bottom:1px solid var(--line);" +
+      "white-space:nowrap;";
+    headerRow.append(th);
+  });
+
+  thead.append(headerRow);
+
+  const tbody = document.createElement("tbody");
+
+  records.forEach(record => {
+    const row = document.createElement("tr");
+
+    columns.forEach(column => {
+      const td = document.createElement("td");
+      td.textContent = formatCellValue(record[column]);
+      td.style.cssText =
+        "padding:12px;border-bottom:1px solid var(--line);" +
+        "vertical-align:top;max-width:280px;" +
+        "overflow-wrap:anywhere;";
+      row.append(td);
+    });
+
+    tbody.append(row);
+  });
+
+  table.append(thead, tbody);
+  tableWrapper.append(table);
+  workspace.append(tableWrapper);
+}
+
+async function loadDataPage(page) {
+  const endpoint = pageEndpoints[page];
+
+  if (!endpoint) return;
+
+  showLoading(page);
+
+  try {
+    const records = await apiGet(`/api/data/${endpoint}`);
+
+    // Ignore stale responses if the user has switched pages.
+    if (currentPage !== page) return;
+
+    renderTable(page, records);
+  } catch (error) {
+    if (currentPage !== page) return;
+
+    const workspace = createDataWorkspace();
+    workspace.replaceChildren();
+
+    const heading = document.createElement("h2");
+    heading.textContent = page;
+    heading.style.fontFamily = "Georgia,serif";
+
+    const message = document.createElement("p");
+    message.textContent =
+      "Unable to load records. Check the Java API server and try refreshing.";
+    message.style.color = "var(--muted)";
+
+    workspace.append(heading, message);
+    console.error(`Error loading ${page}:`, error);
+    showNotice(`Could not load ${page}. Check the API connection.`);
+  }
 }
 
 function openPage(page) {
+  currentPage = page;
+
   document.getElementById("page-title").textContent = page;
   document.getElementById("page-subtitle").textContent =
     subtitles[page] || "ZYRA driver safety workspace.";
@@ -602,39 +853,54 @@ function openPage(page) {
     button.classList.toggle("active", button.dataset.page === page);
   });
 
-  if (page === "Overview") {
-    document.querySelector(".hero").style.display = "grid";
-    document.querySelector(".stats").style.display = "grid";
-    document.querySelector("#management").style.display = "flex";
-    document.querySelector(".modules").style.display = "grid";
-  } else {
-    document.querySelector(".hero").style.display = "none";
-    document.querySelector(".stats").style.display = "none";
-    document.querySelector("#management").style.display = "none";
-    document.querySelector(".modules").style.display = "grid";
-    document.querySelectorAll(".module").forEach(card => {
-      card.style.display = card.dataset.page === page ? "block" : "none";
-    });
-    showNotice(page + ": backend connection is not configured yet.");
-  }
+  const overview = page === "Overview";
 
-  if (page === "Overview") {
-    document.querySelectorAll(".module").forEach(card => {
-      card.style.display = "block";
-    });
+  document.querySelector(".hero").style.display =
+    overview ? "grid" : "none";
+
+  document.querySelector(".stats").style.display =
+    overview ? "grid" : "none";
+
+  document.querySelector("#management").style.display =
+    overview ? "flex" : "none";
+
+  document.querySelector(".modules").style.display =
+    overview ? "grid" : "none";
+
+  document.querySelectorAll(".module").forEach(card => {
+    card.style.display = "block";
+  });
+
+  const oldWorkspace = document.getElementById("data-workspace");
+
+  if (overview) {
+    if (oldWorkspace) oldWorkspace.remove();
+    loadDashboard();
+  } else if (pageEndpoints[page]) {
+    loadDataPage(page);
   }
 }
 
 document.querySelectorAll("[data-page]").forEach(button => {
-  button.addEventListener("click", () => openPage(button.dataset.page));
+  button.addEventListener("click", () => {
+    openPage(button.dataset.page);
+  });
 });
 
 document.getElementById("refresh").addEventListener("click", () => {
-  showNotice("Dashboard refreshed. Live database data is not connected.");
+  if (currentPage === "Overview") {
+    loadDashboard();
+    showNotice("Refreshing dashboard data…");
+  } else if (pageEndpoints[currentPage]) {
+    loadDataPage(currentPage);
+    showNotice(`Refreshing ${currentPage}…`);
+  }
 });
 
 document.getElementById("admin").addEventListener("click", () => {
-  showNotice("Admin features will be available after authentication is configured.");
+  showNotice(
+    "The Admin Console requires an authentication system, which has not been implemented yet."
+  );
 });
 
 document.getElementById("explore").addEventListener("click", () => {
