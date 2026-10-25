@@ -481,6 +481,15 @@ footer {
     <div class="hero-symbol" aria-hidden="true">安全</div>
   </section>
 
+
+  <section id="zyra-camera-panel" style="margin:26px 0;padding:22px;background:var(--paper);border:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,1fr);gap:22px;">
+    <div><div class="eyebrow">LIVE OPENCV MONITORING</div><h2 style="font-family:Georgia,serif;font-weight:normal;margin:8px 0 14px;">Driver camera</h2>
+      <video id="zyra-video" autoplay playsinline muted style="width:100%;max-height:360px;object-fit:cover;background:#211b1c;display:block;min-height:180px;"></video>
+      <canvas id="zyra-canvas" hidden></canvas>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn primary" id="zyra-start">Start monitoring</button><button class="btn" id="zyra-stop" disabled>Stop monitoring</button></div>
+    </div><div><h3 style="font-family:Georgia,serif;font-weight:normal;">Detection status</h3><p id="zyra-status" role="status">Not monitoring. Start the Java API first.</p><p id="zyra-session">No active website session.</p><p style="font-size:12px;color:var(--muted);line-height:1.6;">Frames are processed by your local Java/OpenCV service. Eye-not-detected is a warning only, not a medical or validated drowsiness diagnosis. Use with permission.</p></div>
+  </section>
+
   <div class="section-heading">
     <h2>At a glance</h2>
     <span>LIVE DATABASE CONNECTION NOT CONFIGURED</span>
@@ -605,8 +614,15 @@ function showNotice(message) {
   }, 4000);
 }
 
+function authHeaders() {
+  const token = sessionStorage.getItem("zyra_token");
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
+
 async function apiGet(path) {
-  const response = await fetch(`${API_BASE}${path}`);
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: authHeaders()
+  });
 
   if (!response.ok) {
     throw new Error(`API request failed (${response.status})`);
@@ -898,9 +914,15 @@ document.getElementById("refresh").addEventListener("click", () => {
 });
 
 document.getElementById("admin").addEventListener("click", () => {
-  showNotice(
-    "The Admin Console requires an authentication system, which has not been implemented yet."
-  );
+  if (!window.zyraUser) {
+    showNotice("Please sign in first.");
+    return;
+  }
+  if (window.zyraUser.role !== "admin") {
+    showNotice("Admin access only.");
+    return;
+  }
+  showNotice("Admin identity verified. Admin management pages are the next step.");
 });
 
 document.getElementById("explore").addEventListener("click", () => {
@@ -908,6 +930,165 @@ document.getElementById("explore").addEventListener("click", () => {
     behavior: "smooth",
     block: "start"
   });
+});
+
+
+// ZYRA live webcam -> local Java/OpenCV API
+(() => {
+  const video = document.getElementById('zyra-video');
+  const canvas = document.getElementById('zyra-canvas');
+  const start = document.getElementById('zyra-start');
+  const stop = document.getElementById('zyra-stop');
+  const status = document.getElementById('zyra-status');
+  const sessionLabel = document.getElementById('zyra-session');
+  if (!video || !start || !stop) return;
+  let stream = null, sessionId = null, loop = null, busy = false;
+  async function post(path, payload) {
+    const r = await fetch(`${API_BASE}${path}`, {method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body:JSON.stringify(payload)});
+    const data = await r.json(); if (!r.ok) throw new Error(data.error || `API error ${r.status}`); return data;
+  }
+  async function sendFrame() {
+    if (!sessionId || !stream || busy || video.readyState < 2) return;
+    busy = true;
+    try {
+      const w = Math.min(video.videoWidth || 640, 640);
+      const h = Math.round(w * (video.videoHeight || 480) / (video.videoWidth || 640));
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+      const image = canvas.toDataURL('image/jpeg', 0.72);
+      const result = await post('/api/detect', {sessionId, image});
+      status.textContent = result.status;
+      status.style.color = result.status.startsWith('WARNING') ? '#a73546' : 'var(--wine)';
+    } catch (e) { status.textContent = `Detection error: ${e.message}`; }
+    finally { busy = false; }
+  }
+  start.addEventListener('click', async () => {
+    start.disabled = true;
+    try {
+      const health = await apiGet('/api/health');
+      if (health.detector !== 'ready') throw new Error('Java/OpenCV detector is not ready.');
+      const raw = prompt('Enter an existing Driver ID from the Drivers page:');
+      if (raw === null) return;
+      const driverId = Number(raw); if (!Number.isInteger(driverId) || driverId < 1) throw new Error('Enter a valid numeric Driver ID.');
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640}},audio:false});
+      video.srcObject = stream; await video.play();
+      const created = await post('/api/session/start', {driverId}); sessionId = created.sessionId;
+      sessionLabel.textContent = `Active session #${sessionId} · Driver #${driverId}`;
+      status.textContent = 'Monitoring started; processing webcam frames…';
+      start.disabled = true; stop.disabled = false;
+      loop = setInterval(sendFrame, 850); sendFrame();
+      showNotice('Live OpenCV monitoring started. Keep this page open.');
+      loadDashboard();
+    } catch (e) {
+      if (stream) {stream.getTracks().forEach(t=>t.stop());stream=null;}
+      video.srcObject = null; status.textContent = e.message; start.disabled = false;
+    }
+  });
+  stop.addEventListener('click', async () => {
+    stop.disabled = true; if (loop) clearInterval(loop); loop = null;
+    const oldId = sessionId; sessionId = null;
+    if (stream) stream.getTracks().forEach(t=>t.stop()); stream = null; video.srcObject = null;
+    try { if (oldId) await post('/api/session/stop', {sessionId:oldId}); status.textContent = 'Monitoring stopped.'; sessionLabel.textContent = `Session #${oldId} completed.`; }
+    catch(e) { status.textContent = `Camera stopped; session update failed: ${e.message}`; }
+    start.disabled = false; loadDashboard();
+  });
+  window.addEventListener('beforeunload', () => { if (loop) clearInterval(loop); if (stream) stream.getTracks().forEach(t=>t.stop()); });
+})();
+
+const authScreen = document.createElement("div");
+authScreen.id = "zyra-auth-screen";
+authScreen.style.cssText = "position:fixed;inset:0;z-index:9999;background:#f7f0e5;display:flex;align-items:center;justify-content:center;padding:20px;font-family:Arial,sans-serif;";
+authScreen.innerHTML = `
+  <form id="zyra-auth-form" style="width:min(420px,100%);background:#fffaf2;padding:34px;border:1px solid #e6d8cd;border-radius:8px;box-shadow:0 15px 50px #30232618">
+    <div style="font: bold 12px Arial;letter-spacing:4px;color:#a73546">DRIVER SAFETY PLATFORM</div>
+    <h1 style="font:normal 38px Georgia,serif;color:#701f32;margin:12px 0">ZYRA</h1>
+    <p id="zyra-auth-subtitle" style="color:#897a76;line-height:1.6">Sign in to your secure workspace.</p>
+    <label for="zyra-username">Username</label>
+    <input id="zyra-username" autocomplete="username" required minlength="3" maxlength="50" style="display:block;width:100%;padding:12px;margin:8px 0 18px;border:1px solid #e6d8cd;border-radius:4px">
+    <label for="zyra-password">Password</label>
+    <input id="zyra-password" type="password" autocomplete="current-password" required minlength="12" maxlength="200" style="display:block;width:100%;padding:12px;margin:8px 0 18px;border:1px solid #e6d8cd;border-radius:4px">
+    <button id="zyra-auth-submit" type="submit" style="width:100%;padding:13px;background:#701f32;color:white;border:0;border-radius:4px;font-weight:bold">Sign in</button>
+    <button id="zyra-auth-toggle" type="button" style="width:100%;padding:13px;margin-top:8px;background:transparent;color:#701f32;border:1px solid #e6d8cd;border-radius:4px">Create an account</button>
+    <p id="zyra-auth-error" role="alert" style="color:#a73546;line-height:1.5"></p>
+  </form>`;
+document.body.appendChild(authScreen);
+
+let zyraRegisterMode = false;
+document.getElementById("zyra-auth-toggle").addEventListener("click", () => {
+  zyraRegisterMode = !zyraRegisterMode;
+  document.getElementById("zyra-auth-subtitle").textContent = zyraRegisterMode
+    ? "Create your personal ZYRA account."
+    : "Sign in to your secure workspace.";
+  document.getElementById("zyra-auth-submit").textContent = zyraRegisterMode
+    ? "Create account" : "Sign in";
+  document.getElementById("zyra-auth-toggle").textContent = zyraRegisterMode
+    ? "Back to sign in" : "Create an account";
+  document.getElementById("zyra-password").setAttribute(
+    "autocomplete", zyraRegisterMode ? "new-password" : "current-password"
+  );
+  document.getElementById("zyra-auth-error").textContent = zyraRegisterMode
+    ? "Use a password of at least 12 characters." : "";
+});
+
+document.getElementById("zyra-auth-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const submit = document.getElementById("zyra-auth-submit");
+  const error = document.getElementById("zyra-auth-error");
+  const username = document.getElementById("zyra-username").value.trim();
+  const password = document.getElementById("zyra-password").value;
+  submit.disabled = true;
+  error.textContent = "Connecting securely…";
+
+  try {
+    if (zyraRegisterMode) {
+      const registerResponse = await fetch(`${API_BASE}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const registerData = await registerResponse.json();
+      if (!registerResponse.ok) {
+        throw new Error(registerData.error || "Registration failed.");
+      }
+      zyraRegisterMode = false;
+      document.getElementById("zyra-auth-subtitle").textContent =
+        "Account created. Sign in with your new credentials.";
+      document.getElementById("zyra-auth-submit").textContent = "Sign in";
+      document.getElementById("zyra-auth-toggle").textContent = "Create another account";
+      error.textContent = "Account created successfully. Sign in to continue.";
+      document.getElementById("zyra-password").value = "";
+      return;
+    }
+
+    const response = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Invalid username or password.");
+    if (!data.token || !data.role) throw new Error("Unexpected login response.");
+
+    sessionStorage.setItem("zyra_token", data.token);
+    window.zyraUser = {
+      userId: data.userId,
+      username: data.username,
+      role: data.role
+    };
+    authScreen.remove();
+    document.getElementById("admin").textContent =
+      data.role === "admin" ? "Admin Console ↗" : "Account: " + data.username;
+    openPage("Overview");
+    showNotice(`Signed in as ${data.username}.`);
+  } catch (err) {
+    error.textContent = err.message || "Unable to sign in.";
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.getElementById("admin").addEventListener("contextmenu", event => {
+  event.preventDefault();
 });
 
 openPage("Overview");

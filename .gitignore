@@ -1,0 +1,9 @@
+﻿*.class
+*.bak
+*.before-auth.java
+*.before-cors.java
+.env
+.env.*
+!.env.example
+lib/
+target/
